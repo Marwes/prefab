@@ -1,4 +1,6 @@
+local constants = require("constants")
 
+local prefab = require("control/prefab")
 
 script.on_event(defines.events.on_tick, function(e)
     if e.tick % 60 ~= 0 then return end
@@ -10,20 +12,25 @@ script.on_event(defines.events.on_pre_build, function(e)
 end)
 
 script.on_event(defines.events.on_built_entity, function(e)
-    log(serpent.block{e})
-    local player = game.players[e.player_index]
-    local inventory = player.get_inventory(defines.inventory.character_main)
-    if not player.can_place_entity{ name = e.created_entity.ghost_name, position = e.created_entity.position, direction = e.created_entity.direction} then
-        log("NO")
+    if e.created_entity.name == constants.prefab_name then
+        prefab.on_built_entity(e)
+        return
     end
+    log(serpent.block{e.created_entity})
+end)
 
-  --      player.surface.create_entity{
-  --          name = blueprintEntity.name,
-  --          position = blueprintEntity.position,
-  --          force = player.force,
-  --          direction = blueprintEntity.direction,
-  --      }
-  --  for i, blueprintEntity in ipairs(e.stack.get_blueprint_entities()) do
-  --  end
-    -- log(serpent.block{e})
-end, {{ filter = "ghost" }})
+script.on_event(defines.events.on_pre_player_mined_item, function(e)
+    log(serpent.block{e})
+    if e.entity.name == constants.prefab_name and prefab.on_pre_player_mined_item  then
+        prefab.on_pre_player_mined_item(e)
+        return
+    end
+end)
+
+script.on_event(defines.events.on_player_mined_entity, function(e)
+    log(serpent.block{e})
+    if e.entity.name == constants.prefab_name and prefab.on_player_mined_entity then
+        prefab.on_player_mined_entity(e)
+        return
+    end
+end)
