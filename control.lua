@@ -16,11 +16,11 @@ script.on_event(defines.events.on_built_entity, function(e)
         prefab.on_built_entity(e)
         return
     end
-    log(serpent.block{e.created_entity})
+    -- log(serpent.block{e.created_entity})
 end)
 
 script.on_event(defines.events.on_pre_player_mined_item, function(e)
-    log(serpent.block{e})
+    -- log(serpent.block{e})
     if e.entity.name == constants.prefab_name and prefab.on_pre_player_mined_item  then
         prefab.on_pre_player_mined_item(e)
         return
@@ -28,7 +28,7 @@ script.on_event(defines.events.on_pre_player_mined_item, function(e)
 end)
 
 script.on_event(defines.events.on_player_mined_entity, function(e)
-    log(serpent.block{e})
+    -- log(serpent.block{e})
     if e.entity.name == constants.prefab_name and prefab.on_player_mined_entity then
         prefab.on_player_mined_entity(e)
         return
