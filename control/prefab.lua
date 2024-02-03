@@ -64,10 +64,9 @@ end
 
 function exports.on_built_entity(e)
     local entity = e.created_entity
-
     local position = entity.position
+    local player = game.players[e.player_index]
 
-    set_tiles_around(entity.surface, position, size, tile_name)
 
     local inventory = game.create_inventory(1)
     inventory.insert{ name = "blueprint", count = 1 }
@@ -83,14 +82,46 @@ function exports.on_built_entity(e)
 
         local place_position = { entity.position.x + center.x - size / 2, entity.position.y + center.y - size / 2 }
         log(serpent.block{place_position, center})
-        local built_entities = blueprint.build_blueprint{ surface = entity.surface, force = entity.force, position = place_position, force_build = true, by_player = e.player_index }
+        local built_entities = blueprint.build_blueprint{ surface = entity.surface, force = entity.force, position = place_position, by_player = e.player_index }
+        log(serpent.block{#built_entities, #blueprint.get_blueprint_entities()})
+        if #built_entities  ~= #blueprint.get_blueprint_entities() - 1 then -- Subtract one for the prefab itself
+            game.players[e.player_index].insert(e.stack)
+			entity.surface.create_entity{ name="flying-text", position = entity.position, text = "Unable to build prefab due to colliding entities" }
+            entity.destroy()
+            return
+        end
         for _, e in ipairs(built_entities) do 
-            e.silent_revive{ return_item_request_proxy = true, raise_revive = false }
+            if player.can_place_entity{ name = e.ghost_name, position = e.position, direction = e.direction } then
+                log(serpent.block{e.ghost_name, player.get_main_inventory().get_item_count("electric-mining-drill")})
+                local cant_remove_index = nil 
+                local items_to_place_this = e.ghost_prototype.items_to_place_this
+                local player_inventory = player.get_main_inventory()
+                for i, item in ipairs(items_to_place_this) do
+                    local to_remove = item.count or 1
+                    if player_inventory.remove(item) ~= to_remove then
+                        cant_remove_index = i
+                        break
+                    end
+                end
+
+                if cant_remove_index then
+                    -- Did not have the items to place this entity, restore the items we removed and don't place the entity (leave it as a ghost)
+                    for i=1,cant_remove_index - 1,1 do
+                        player_inventory.insert(items_to_place_this[i])
+                    end
+                else
+                    e.silent_revive{ return_item_request_proxy = true, raise_revive = false }
+                end
+            end
         end
     end
 
+    set_tiles_around(entity.surface, position, size, tile_name)
+
     -- TEST
-    game.players[e.player_index].insert(blueprint)
+    if true then
+        player.insert(blueprint)
+    end
 
     inventory.destroy()
 end
@@ -102,6 +133,9 @@ local function create_blueprint(inventory, surface, force, prefab_bounding_box)
     blueprint.blueprint_snap_to_grid = { x = size, y = size }
     blueprint.blueprint_absolute_snapping = false
     local blueprint_entities = blueprint.get_blueprint_entities()
+
+    -- Don't create a blueprint if the prefab is the only entity
+    if #blueprint_entities == 1 then return nil end
 
     local prefab_position
     for _, e in ipairs(blueprint_entities) do
@@ -126,32 +160,34 @@ function exports.on_player_mined_entity(e)
     local player = game.players[e.player_index]
 
     local prefab_bounding_box = centered_bounding_box(prefab.position, size)
-    local searchedEntities = prefab.surface.find_entities(prefab_bounding_box)
+    local searchedEntities = prefab.surface.find_entities_filtered{ area = prefab_bounding_box }
+    local searchedEntities = prefab.surface.find_entities_filtered{ area = prefab_bounding_box, force = player.force }
     local prefabbedEntities = {}
     for i, entity in ipairs(searchedEntities) do
-        if entity.name == constants.prefab_name then
-            ::continue::
-        end
-        if contains_bounding_box(prefab_bounding_box, entity.bounding_box) then
+        if entity.name ~= constants.prefab_name and contains_bounding_box(prefab_bounding_box, entity.bounding_box) then
             table.insert(prefabbedEntities, entity)
         end
     end
 
     local blueprint_string = create_blueprint(e.buffer, prefab.surface, player.force, prefab_bounding_box)
 
-    local prefab_stack = e.buffer.find_item_stack(constants.prefab_name)
-    assert(prefab_stack)
-    prefab_stack.set_tag("blueprint", blueprint_string)
-
-
     remove_tiles_around(prefab.surface, prefab.position, size)
 
-    local params = {}
-    for _, entity in ipairs(prefabbedEntities) do
-	    table.insert(params, '[item=' .. entity.name .. ']')
-        entity.destroy()
+    if blueprint_string then
+        local prefab_stack = e.buffer.find_item_stack(constants.prefab_name)
+        assert(prefab_stack)
+        prefab_stack.set_tag("blueprint", blueprint_string)
+
+        local params = {}
+        for _, entity in ipairs(prefabbedEntities) do
+            if entity.name ~= constants.prefab_name then
+                table.insert(params, '[item=' .. entity.name .. ']')
+                player.mine_entity(entity)
+            end
+        end
+        prefab_stack.custom_description = table.concat(params, " ")
+
     end
-    prefab_stack.custom_description = table.concat(params, " ")
 end
 
 return exports
