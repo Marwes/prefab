@@ -2,25 +2,33 @@ local constants = require("constants")
 
 local base = "medium-electric-pole"
 
-local t = table.deepcopy(data.raw["electric-pole"][base])
-t.name = constants.prefab_name
-t.minable.result = constants.prefab_name
+local prefab_placed_entity = table.deepcopy(data.raw["electric-pole"][base])
+prefab_placed_entity.name = constants.prefab_name
+prefab_placed_entity.minable.result = constants.prefab_build_name
+-- prefab_placed_entity.collision_mask = { "item-layer", "object-layer", "water-tile" }
 
-local i = table.deepcopy(data.raw["item"][base])
-i.name = constants.prefab_name
-i.place_result = constants.prefab_name
-i.subgroup = "other" 
-i.order = "a[prefab]-f[prefab]"
-i.type = "item-with-tags"
-i.collision_box = { { -constants.prefab_size, -constants.prefab_size }, { constants.prefab_size, constants.prefab_size } }
-i.selection_box = { { -constants.prefab_size, -constants.prefab_size }, { constants.prefab_size, constants.prefab_size } }
-i.collision_mask = { "item-layer", "object-layer", "water-tile", "layer-55" }
- 
+local prefab_build_entity = table.deepcopy(prefab_placed_entity)
+prefab_build_entity.name = constants.prefab_build_name
+local size = (constants.prefab_size - 0.01) / 2
+prefab_build_entity.collision_box = { { -size, -size }, { size, size } }
+-- prefab_build_entity.selection_box = { { -size, -size }, { size, size } }
+
+local prefab_item = table.deepcopy(data.raw["item"][base])
+prefab_item.name = constants.prefab_build_name
+prefab_item.place_result = constants.prefab_build_name
+prefab_item.subgroup = "other" 
+prefab_item.order = "a[prefab]-f[prefab]"
+prefab_item.type = "item-with-tags"
+
+local prefab_build_item = table.deepcopy(prefab_item)
+prefab_build_item.name = constants.prefab_name
+prefab_build_item.place_result = constants.prefab_name
+
 local r = table.deepcopy(data.raw["recipe"][base])
-r.name = constants.prefab_name
-r.result = constants.prefab_name
+r.name = constants.prefab_build_name
+r.result = constants.prefab_build_name
 
-data:extend{t, i}
+data:extend{prefab_placed_entity, prefab_build_entity, prefab_item, prefab_build_item}
 
 local prefab_tint = { r = 0.7, g = 0.7, b = 0.7, a = 1 }
 

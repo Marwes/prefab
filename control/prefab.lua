@@ -6,6 +6,10 @@ local tile_name = constants.prefab_tile_name
 
 local size = 7
 
+local function is_prefab(e)
+    return e.name == constants.prefab_name
+end
+
 local function centered_bounding_box(position, size)
     return {left_top = { x = position.x - size / 2, y = position.y - size / 2}, right_bottom = { x = position.x + size / 2, y = position.y + size / 2}}
 end
@@ -21,7 +25,7 @@ local function find_prefab_in_blueprint(blueprint)
     local blueprint_entities = blueprint.get_blueprint_entities()
 
     for _, e in ipairs(blueprint_entities) do
-        if e.name == constants.prefab_name then
+        if is_prefab(e) then
             return { x = e.position.x, y = e.position.y }
         end
     end
@@ -67,7 +71,16 @@ end
 function exports.on_built_entity(e)
     local entity = e.created_entity
     local position = entity.position
+    local surface = entity.surface
+    local force = entity.force
+
     local player = game.players[e.player_index]
+
+    -- Replace the "build entity" has a large collission box to indicate the whole prefab's size, we replace it with the in-world entity before deploying the prefab
+    if entity.name == constants.prefab_build_name then
+        entity.destroy()
+        entity = surface.create_entity{ name = constants.prefab_name, position = position, force = force, player = player, source = player.character}
+    end
 
 
     local inventory = game.create_inventory(1)
@@ -81,11 +94,11 @@ function exports.on_built_entity(e)
 
         local center = blueprint_center_position(blueprint)
 
-        local place_position = { entity.position.x + center.x - size / 2, entity.position.y + center.y - size / 2 }
-        local built_entities = blueprint.build_blueprint{ surface = entity.surface, force = entity.force, position = place_position, by_player = e.player_index }
+        local place_position = { position.x + center.x - size / 2, position.y + center.y - size / 2 }
+        local built_entities = blueprint.build_blueprint{ surface = surface, force = force, position = place_position, by_player = e.player_index }
         if #built_entities  ~= #blueprint.get_blueprint_entities() - 1 then -- Subtract one for the prefab itself
             game.players[e.player_index].insert(e.stack)
-			entity.surface.create_entity{ name="flying-text", position = entity.position, text = "Unable to build prefab as some entities could not be built" }
+			surface.create_entity{ name="flying-text", position = position, text = "Unable to build prefab as some entities could not be built" }
             entity.destroy()
             return
         end
@@ -126,7 +139,7 @@ function exports.on_built_entity(e)
         end
     end
 
-    set_tiles_around(entity.surface, position, size, tile_name)
+    set_tiles_around(surface, position, size, tile_name)
 
     -- TEST
     if false then
@@ -137,6 +150,7 @@ function exports.on_built_entity(e)
 end
 
 local function create_blueprint(inventory, surface, force, prefab_bounding_box)
+    log(serpent.block{"create_blueprint", prefab_bounding_box})
     assert(inventory.insert{name = "blueprint", count = 1} == 1)
     local blueprint = inventory.find_item_stack("blueprint")
     blueprint.create_blueprint{ surface = surface, force = force, area = prefab_bounding_box }
@@ -145,18 +159,20 @@ local function create_blueprint(inventory, surface, force, prefab_bounding_box)
     local blueprint_entities = blueprint.get_blueprint_entities()
 
     -- Don't create a blueprint if the prefab is the only entity
-    if #blueprint_entities == 1 then
+    if blueprint_entities == nil or #blueprint_entities == 1 then
         assert(inventory.remove("blueprint") == 1)
         return nil
     end
 
     local prefab_position
     for _, e in ipairs(blueprint_entities) do
-        if e.name == constants.prefab_name then
+        log(serpent.block{e.name})
+        if is_prefab(e) then
             prefab_position = { x = e.position.x - size / 2, y = e.position.y - size / 2 }
             break
         end
     end
+    assert(prefab_position, "BUG: Unable to find prefab when generating prefab blueprint")
     for _, e in ipairs(blueprint_entities) do
         e.position.x = e.position.x - prefab_position.x
         e.position.y = e.position.y - prefab_position.y
@@ -181,7 +197,7 @@ function exports.on_player_mined_entity(e)
     local searchedEntities = prefab.surface.find_entities_filtered{ area = prefab_bounding_box, force = player.force }
     local prefabbedEntities = {}
     for i, entity in ipairs(searchedEntities) do
-        if entity.name ~= constants.prefab_name then
+        if not is_prefab(e) then
             if contains_bounding_box(prefab_bounding_box, entity.bounding_box) then
                 table.insert(prefabbedEntities, entity)
             else
@@ -196,14 +212,15 @@ function exports.on_player_mined_entity(e)
 
     remove_tiles_around(prefab.surface, prefab.position, size)
 
+    log(blueprint_string)
     if blueprint_string then
         local prefab_stack = e.buffer.find_item_stack(constants.prefab_name)
-        assert(prefab_stack)
+        assert(prefab_stack, "Missing prefab!")
         prefab_stack.set_tag("blueprint", blueprint_string)
 
         local params = {}
         for _, entity in ipairs(prefabbedEntities) do
-            if entity.valid and entity.minable and entity.name ~= constants.prefab_name then
+            if entity.valid and entity.minable and not is_prefab(entity) then
                 local item_name = entity.name == "entity-ghost" and entity.ghost_name or entity.name
                 if player.mine_entity(entity) then
                     table.insert(params, '[item=' .. item_name .. ']')
