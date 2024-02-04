@@ -34,3 +34,19 @@ script.on_event(defines.events.on_player_mined_entity, function(e)
         return
     end
 end)
+
+script.on_event(defines.events.on_player_built_tile, function(e)
+    -- log(serpent.block{e})
+    if  prefab.on_player_built_tile then
+        prefab.on_player_built_tile(e)
+        return
+    end
+end)
+
+script.on_event(defines.events.on_player_mined_tile, function(e)
+    -- log(serpent.block{e})
+    if  prefab.on_player_mined_tile then
+        prefab.on_player_mined_tile(e)
+        return
+    end
+end)

@@ -2,7 +2,7 @@ local constants = require("constants")
 
 local exports = {}
 
-local tile_name = "refined-concrete"
+local tile_name = constants.prefab_tile_name
 
 local size = 7
 
@@ -56,7 +56,9 @@ end
 local function remove_tiles_around(surface, position, size)
     local tiles = {}
     for _, tile in ipairs(surface.find_tiles_filtered{ position = position, area = centered_bounding_box(position, size) }) do
-        table.insert(tiles, { name = tile.hidden_tile, position = tile.position })
+        if tile.hidden_tile then
+            table.insert(tiles, { name = tile.hidden_tile, position = tile.position })
+        end
     end
 
     surface.set_tiles(tiles)
@@ -76,23 +78,19 @@ function exports.on_built_entity(e)
     local blueprint_string = e.stack.get_tag("blueprint")
     if blueprint_string then
         blueprint.import_stack(blueprint_string)
-        log(serpent.block{"----", find_prefab_in_blueprint(blueprint), blueprint_center_position(blueprint)})
 
         local center = blueprint_center_position(blueprint)
 
         local place_position = { entity.position.x + center.x - size / 2, entity.position.y + center.y - size / 2 }
-        log(serpent.block{place_position, center})
         local built_entities = blueprint.build_blueprint{ surface = entity.surface, force = entity.force, position = place_position, by_player = e.player_index }
-        log(serpent.block{#built_entities, #blueprint.get_blueprint_entities()})
         if #built_entities  ~= #blueprint.get_blueprint_entities() - 1 then -- Subtract one for the prefab itself
             game.players[e.player_index].insert(e.stack)
-			entity.surface.create_entity{ name="flying-text", position = entity.position, text = "Unable to build prefab due to colliding entities" }
+			entity.surface.create_entity{ name="flying-text", position = entity.position, text = "Unable to build prefab as some entities could not be built" }
             entity.destroy()
             return
         end
         for _, e in ipairs(built_entities) do 
             if player.can_place_entity{ name = e.ghost_name, position = e.position, direction = e.direction } then
-                log(serpent.block{e.ghost_name, player.get_main_inventory().get_item_count("electric-mining-drill")})
                 local cant_remove_index = nil 
                 local items_to_place_this = e.ghost_prototype.items_to_place_this
                 local player_inventory = player.get_main_inventory()
@@ -147,7 +145,10 @@ local function create_blueprint(inventory, surface, force, prefab_bounding_box)
     local blueprint_entities = blueprint.get_blueprint_entities()
 
     -- Don't create a blueprint if the prefab is the only entity
-    if #blueprint_entities == 1 then return nil end
+    if #blueprint_entities == 1 then
+        assert(inventory.remove("blueprint") == 1)
+        return nil
+    end
 
     local prefab_position
     for _, e in ipairs(blueprint_entities) do
@@ -163,7 +164,7 @@ local function create_blueprint(inventory, surface, force, prefab_bounding_box)
     blueprint.set_blueprint_entities(blueprint_entities)
 
     local blueprint_string = blueprint.export_stack()
-    inventory.remove("blueprint")
+    assert(inventory.remove("blueprint") == 1)
     return blueprint_string
 end
 
@@ -202,14 +203,56 @@ function exports.on_player_mined_entity(e)
 
         local params = {}
         for _, entity in ipairs(prefabbedEntities) do
-            if entity.valid and entity.name ~= constants.prefab_name then
+            if entity.valid and entity.minable and entity.name ~= constants.prefab_name then
                 local item_name = entity.name == "entity-ghost" and entity.ghost_name or entity.name
-                table.insert(params, '[item=' .. item_name .. ']')
-                player.mine_entity(entity)
+                if player.mine_entity(entity) then
+                    table.insert(params, '[item=' .. item_name .. ']')
+                end
             end
         end
         prefab_stack.custom_description = table.concat(params, " ")
 
+    end
+end
+
+function exports.on_player_mined_tile(e)
+    local surface = game.surfaces[e.surface_index]
+    local tiles = e.tiles
+ 
+    -- Disables mining of the prefab tiles, without making them not-minable (which would cause any natural tiles to be erased when the prefab is placed)
+    local tiles_to_restore = {}
+    for _, tile in pairs(tiles) do
+        if tile.old_tile.name == constants.prefab_tile_name then
+            table.insert(tiles_to_restore, { name = constants.prefab_tile_name, position = tile.position })
+        end
+    end
+    
+    if #tiles_to_restore > 0 then
+        surface.set_tiles(tiles_to_restore)
+    end
+end
+
+function exports.on_player_built_tile(e)
+    log(serpent.block{"on_player_mined_tile", e})
+    if e.tile.name == constants.prefab_tile_name then return end
+
+    local tiles = e.tiles
+    local surface = game.surfaces[e.surface_index]
+
+    local tiles_to_restore = {}
+    -- Disable building tiles on top of any prefab tiles
+    
+    for _, tile in pairs(tiles) do
+        if tile.old_tile.name == constants.prefab_tile_name then
+            table.insert(tiles_to_restore, { name = constants.prefab_tile_name, position = tile.position })
+        end
+    end
+    
+    if #tiles_to_restore > 0 then
+        surface.set_tiles(tiles_to_restore)
+        if e.stack then
+            e.stack.count = e.stack.count + #tiles_to_restore
+        end
     end
 end
 
