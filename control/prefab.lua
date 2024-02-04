@@ -110,7 +110,19 @@ function exports.on_built_entity(e)
                         player_inventory.insert(items_to_place_this[i])
                     end
                 else
-                    e.silent_revive{ return_item_request_proxy = true, raise_revive = false }
+                    local _, built_entity, item_request_proxy = e.silent_revive{ return_item_request_proxy = true, raise_revive = false }
+
+                    if item_request_proxy then
+                        local remaining_requests = {}
+                        for item_name, count in pairs(item_request_proxy.item_requests) do
+                            local modules_placed = player_inventory.remove{name = item_name, count = count}
+                            built_entity.insert{name = item_name, count = modules_placed}
+                            if modules_placed < count then
+                                remaining_requests[item_name] = count - modules_placed
+                            end
+                        end
+                        item_request_proxy.item_requests = remaining_requests
+                    end
                 end
             end
         end
@@ -180,7 +192,7 @@ function exports.on_player_mined_entity(e)
 
         local params = {}
         for _, entity in ipairs(prefabbedEntities) do
-            if entity.name ~= constants.prefab_name then
+            if entity.valid and entity.name ~= constants.prefab_name then
                 table.insert(params, '[item=' .. entity.name .. ']')
                 player.mine_entity(entity)
             end
