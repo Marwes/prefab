@@ -131,7 +131,7 @@ function exports.on_built_entity(e)
     set_tiles_around(entity.surface, position, size, tile_name)
 
     -- TEST
-    if true then
+    if false then
         player.insert(blueprint)
     end
 
@@ -167,17 +167,27 @@ local function create_blueprint(inventory, surface, force, prefab_bounding_box)
     return blueprint_string
 end
 
+local function show_error_at(surface, position, text)
+    surface.create_entity{ name="flying-text", position = position, text = text }
+    surface.play_sound{ path = "utility/cannot_build", position = position }
+end
+
 function exports.on_player_mined_entity(e)
     local prefab = e.entity
     local player = game.players[e.player_index]
 
     local prefab_bounding_box = centered_bounding_box(prefab.position, size)
-    local searchedEntities = prefab.surface.find_entities_filtered{ area = prefab_bounding_box }
     local searchedEntities = prefab.surface.find_entities_filtered{ area = prefab_bounding_box, force = player.force }
     local prefabbedEntities = {}
     for i, entity in ipairs(searchedEntities) do
-        if entity.name ~= constants.prefab_name and contains_bounding_box(prefab_bounding_box, entity.bounding_box) then
-            table.insert(prefabbedEntities, entity)
+        if entity.name ~= constants.prefab_name then
+            if contains_bounding_box(prefab_bounding_box, entity.bounding_box) then
+                table.insert(prefabbedEntities, entity)
+            else
+                show_error_at(entity.surface, entity.position, { "", entity.localised_name, " is not fully within the prefab's construction area" })
+                prefab.surface.create_entity { name = prefab.name, position = prefab.position, force = prefab.force }
+                return
+            end
         end
     end
 
@@ -193,7 +203,8 @@ function exports.on_player_mined_entity(e)
         local params = {}
         for _, entity in ipairs(prefabbedEntities) do
             if entity.valid and entity.name ~= constants.prefab_name then
-                table.insert(params, '[item=' .. entity.name .. ']')
+                local item_name = entity.name == "entity-ghost" and entity.ghost_name or entity.name
+                table.insert(params, '[item=' .. item_name .. ']')
                 player.mine_entity(entity)
             end
         end
