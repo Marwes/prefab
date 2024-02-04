@@ -179,6 +179,11 @@ local function create_blueprint(inventory, surface, force, prefab_bounding_box)
     end
     blueprint.set_blueprint_entities(blueprint_entities)
 
+    -- TEST
+    if true then
+        game.players[1].insert(blueprint)
+    end
+
     local blueprint_string = blueprint.export_stack()
     assert(inventory.remove("blueprint") == 1)
     return blueprint_string
@@ -197,7 +202,7 @@ function exports.on_player_mined_entity(e)
     local searchedEntities = prefab.surface.find_entities_filtered{ area = prefab_bounding_box, force = player.force }
     local prefabbedEntities = {}
     for i, entity in ipairs(searchedEntities) do
-        if not is_prefab(e) then
+        if not is_prefab(entity) and entity.minable then
             if contains_bounding_box(prefab_bounding_box, entity.bounding_box) then
                 table.insert(prefabbedEntities, entity)
             else
@@ -214,7 +219,7 @@ function exports.on_player_mined_entity(e)
 
     log(blueprint_string)
     if blueprint_string then
-        local prefab_stack = e.buffer.find_item_stack(constants.prefab_name)
+        local prefab_stack = e.buffer.find_item_stack(constants.prefab_build_name)
         assert(prefab_stack, "Missing prefab!")
         prefab_stack.set_tag("blueprint", blueprint_string)
 
