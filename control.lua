@@ -11,8 +11,12 @@ script.on_event(defines.events.on_pre_build, function(e)
     -- log(serpent.block{'----', e, e.name})
 end)
 
+local function is_prefab(entity)
+    return entity.name:find("^prefab") ~= nil
+end
+
 script.on_event(defines.events.on_built_entity, function(e)
-    if e.created_entity.name == constants.prefab_name or e.created_entity.name == constants.prefab_build_name then
+    if is_prefab(e.created_entity) then
         prefab.on_built_entity(e)
         return
     end
@@ -21,7 +25,7 @@ end)
 
 script.on_event(defines.events.on_pre_player_mined_item, function(e)
     -- log(serpent.block{e})
-    if (e.entity.name == constants.prefab_name or e.entity.name == constants.prefab_build_name) and prefab.on_pre_player_mined_item  then
+    if is_prefab(e.entity) and prefab.on_pre_player_mined_item  then
         prefab.on_pre_player_mined_item(e)
         return
     end
@@ -29,7 +33,7 @@ end)
 
 script.on_event(defines.events.on_player_mined_entity, function(e)
     -- log(serpent.block{e})
-    if (e.entity.name == constants.prefab_name or e.entity.name == constants.prefab_build_name) and prefab.on_player_mined_entity then
+    if is_prefab(e.entity) and prefab.on_player_mined_entity then
         prefab.on_player_mined_entity(e)
         return
     end

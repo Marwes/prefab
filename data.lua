@@ -19,35 +19,41 @@ local function tint_sprite(sprite, tint)
     end
 end
 
-local prefab_placed_entity = table.deepcopy(data.raw["electric-pole"][base])
-prefab_placed_entity.name = constants.prefab_name
-prefab_placed_entity.minable.result = constants.prefab_build_name
-tint_sprite(prefab_placed_entity.pictures, prefab_tint)
-log(serpent.block{prefab_placed_entity.pictures})
--- prefab_placed_entity.collision_mask = { "item-layer", "object-layer", "water-tile" }
+local function create_prefab_data(spec)
+    log(serpent.block{spec})
+    local prefab_placed_entity = table.deepcopy(data.raw["electric-pole"][base])
+    prefab_placed_entity.name = spec.name
+    prefab_placed_entity.minable.result = spec.build_name
+    tint_sprite(prefab_placed_entity.pictures, prefab_tint)
+    -- prefab_placed_entity.collision_mask = { "item-layer", "object-layer", "water-tile" }
 
-local prefab_build_entity = table.deepcopy(prefab_placed_entity)
-prefab_build_entity.name = constants.prefab_build_name
-local size = (constants.prefab_size - 0.01) / 2
-prefab_build_entity.collision_box = { { -size, -size }, { size, size } }
--- prefab_build_entity.selection_box = { { -size, -size }, { size, size } }
+    local prefab_build_entity = table.deepcopy(prefab_placed_entity)
+    prefab_build_entity.name = spec.build_name
+    local size = (spec.size - 0.01) / 2
+    prefab_build_entity.collision_box = { { -size, -size }, { size, size } }
+    -- prefab_build_entity.selection_box = { { -size, -size }, { size, size } }
 
-local prefab_item = table.deepcopy(data.raw["item"][base])
-prefab_item.name = constants.prefab_build_name
-prefab_item.place_result = constants.prefab_build_name
-prefab_item.subgroup = "other" 
-prefab_item.order = "a[prefab]-f[prefab]"
-prefab_item.type = "item-with-tags"
+    local prefab_item = table.deepcopy(data.raw["item"][base])
+    prefab_item.name = spec.build_name
+    prefab_item.place_result = spec.build_name
+    prefab_item.subgroup = "other" 
+    prefab_item.order = "a[prefab]-f[prefab]"
+    prefab_item.type = "item-with-tags"
 
-local prefab_build_item = table.deepcopy(prefab_item)
-prefab_build_item.name = constants.prefab_name
-prefab_build_item.place_result = constants.prefab_name
+    local prefab_build_item = table.deepcopy(prefab_item)
+    prefab_build_item.name = spec.name
+    prefab_build_item.place_result = spec.name
 
-local r = table.deepcopy(data.raw["recipe"][base])
-r.name = constants.prefab_build_name
-r.result = constants.prefab_build_name
+    local r = table.deepcopy(data.raw["recipe"][base])
+    r.name = spec.build_name
+    r.result = spec.build_name
 
-data:extend{prefab_placed_entity, prefab_build_entity, prefab_item, prefab_build_item}
+    return {prefab_placed_entity, prefab_build_entity, prefab_item, prefab_build_item}
+end
+
+for _, spec in pairs(constants.prefab) do
+    data:extend(create_prefab_data(spec))
+end
 
 
 local prefab_tile_item = table.deepcopy(data.raw.item["refined-concrete"])

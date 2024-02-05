@@ -4,10 +4,16 @@ local exports = {}
 
 local tile_name = constants.prefab_tile_name
 
-local size = 7
 
-local function is_prefab(e)
-    return e.name == constants.prefab_name
+local function is_prefab(entity)
+    return entity.name:find("^prefab") ~= nil
+end
+
+local function starts_with(haystack, needle)
+    return string.sub(haystack, 1, string.len(needle)) == needle
+end
+local function is_build_prefab(entity)
+    return starts_with(entity.name, "prefab-build")
 end
 
 local function sort_entities(entities)
@@ -81,11 +87,14 @@ function exports.on_built_entity(e)
     local player = game.players[e.player_index]
 
     -- Replace the "build entity" has a large collission box to indicate the whole prefab's size, we replace it with the in-world entity before deploying the prefab
-    if entity.name == constants.prefab_build_name then
+    if is_build_prefab(entity) then
+        local build_name = entity.name
         entity.destroy()
-        entity = surface.create_entity{ name = constants.prefab_name, position = position, force = force, player = player, source = player.character}
+        entity = surface.create_entity{ name = constants.build_name_to_prefab_name(build_name), position = position, force = force, player = player, source = player.character}
     end
 
+    local prefab_spec = constants.prefab[entity.name]
+    assert(prefab_spec, "No prefab spec for " .. entity.name)
 
     local inventory = game.create_inventory(1)
     inventory.insert{ name = "blueprint", count = 1 }
@@ -98,7 +107,7 @@ function exports.on_built_entity(e)
 
         local center = blueprint_center_position(blueprint)
 
-        local place_position = { position.x + center.x - size / 2, position.y + center.y - size / 2 }
+        local place_position = { position.x + center.x - prefab_spec.size / 2, position.y + center.y - prefab_spec.size / 2 }
         local built_entities = blueprint.build_blueprint{ surface = surface, force = force, position = place_position, by_player = e.player_index }
         if #built_entities  ~= #blueprint.get_blueprint_entities() - 1 then -- Subtract one for the prefab itself
             game.players[e.player_index].insert(e.stack)
@@ -143,7 +152,8 @@ function exports.on_built_entity(e)
         end
     end
 
-    set_tiles_around(surface, position, size, tile_name)
+    set_tiles_around(surface, position, prefab_spec.size, tile_name)
+
 
     -- TEST
     if false then
@@ -153,7 +163,7 @@ function exports.on_built_entity(e)
     inventory.destroy()
 end
 
-local function create_blueprint(inventory, surface, force, prefab_bounding_box)
+local function create_blueprint(inventory, surface, force, size, prefab_bounding_box)
     -- log(serpent.block{"create_blueprint", prefab_bounding_box})
     assert(inventory.insert{name = "blueprint", count = 1} == 1)
     local blueprint = inventory.find_item_stack("blueprint")
@@ -203,7 +213,9 @@ function exports.on_player_mined_entity(e)
     local prefab = e.entity
     local player = game.players[e.player_index]
 
-    local prefab_bounding_box = centered_bounding_box(prefab.position, size)
+    local prefab_spec = constants.prefab[prefab.name]
+
+    local prefab_bounding_box = centered_bounding_box(prefab.position, prefab_spec.size)
     local searched_entities = prefab.surface.find_entities_filtered{ area = prefab_bounding_box, force = player.force }
     local prefabbed_entities = {}
     for i, entity in ipairs(searched_entities) do
@@ -220,12 +232,18 @@ function exports.on_player_mined_entity(e)
 
     sort_entities(prefabbed_entities)
 
-    local blueprint_string = create_blueprint(e.buffer, prefab.surface, player.force, prefab_bounding_box)
+    local blueprint_string = create_blueprint(e.buffer, prefab.surface, player.force, prefab_spec.size, prefab_bounding_box)
 
-    remove_tiles_around(prefab.surface, prefab.position, size)
+    remove_tiles_around(prefab.surface, prefab.position, prefab_spec.size)
 
     if blueprint_string then
-        local prefab_stack = e.buffer.find_item_stack(constants.prefab_build_name)
+        local prefab_stack
+        for _, spec in pairs(constants.prefab) do
+            prefab_stack = e.buffer.find_item_stack(spec.build_name)
+            if prefab_stack then
+                break
+            end
+        end
         assert(prefab_stack, "Missing prefab!")
         prefab_stack.set_tag("blueprint", blueprint_string)
 
