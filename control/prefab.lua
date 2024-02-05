@@ -208,7 +208,8 @@ function exports.on_player_mined_entity(e)
     local searched_entities = prefab.surface.find_entities_filtered{ area = prefab_bounding_box, force = player.force }
     local prefabbed_entities = {}
     for i, entity in ipairs(searched_entities) do
-        if not is_prefab(entity) and entity.minable then
+        log(serpent.block{entity.name, entity.type, entity.minable})
+        if not is_prefab(entity) and not (entity.type == "character") and not (entity.type == "car")and entity.minable then
             if contains_bounding_box(prefab_bounding_box, entity.bounding_box) then
                 table.insert(prefabbed_entities, entity)
             else
