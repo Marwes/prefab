@@ -10,6 +10,21 @@ local function is_prefab(e)
     return e.name == constants.prefab_name
 end
 
+local function sort_entities(entities)
+    table.sort(entities, function(l, r)
+        if l.position.x < r.position.x then
+            return true
+        elseif l.position.x > r.position.x then
+            return false
+        elseif l.position.y < r.position.y then
+            return true
+        elseif l.position.y > r.position.y then
+            return false
+        end
+        return l.name < r.name
+    end)
+end
+
 local function centered_bounding_box(position, size)
     return {left_top = { x = position.x - size / 2, y = position.y - size / 2}, right_bottom = { x = position.x + size / 2, y = position.y + size / 2}}
 end
@@ -174,9 +189,11 @@ local function create_blueprint(inventory, surface, force, prefab_bounding_box)
     end
     assert(prefab_position, "BUG: Unable to find prefab when generating prefab blueprint")
     for _, e in ipairs(blueprint_entities) do
-        e.position.x = e.position.x - prefab_position.x
-        e.position.y = e.position.y - prefab_position.y
+        e.position.x = math.floor(e.position.x - prefab_position.x)
+        e.position.y = math.floor(e.position.y - prefab_position.y)
     end
+
+    sort_entities(blueprint_entities)
     blueprint.set_blueprint_entities(blueprint_entities)
 
     -- TEST
@@ -199,12 +216,12 @@ function exports.on_player_mined_entity(e)
     local player = game.players[e.player_index]
 
     local prefab_bounding_box = centered_bounding_box(prefab.position, size)
-    local searchedEntities = prefab.surface.find_entities_filtered{ area = prefab_bounding_box, force = player.force }
-    local prefabbedEntities = {}
-    for i, entity in ipairs(searchedEntities) do
+    local searched_entities = prefab.surface.find_entities_filtered{ area = prefab_bounding_box, force = player.force }
+    local prefabbed_entities = {}
+    for i, entity in ipairs(searched_entities) do
         if not is_prefab(entity) and entity.minable then
             if contains_bounding_box(prefab_bounding_box, entity.bounding_box) then
-                table.insert(prefabbedEntities, entity)
+                table.insert(prefabbed_entities, entity)
             else
                 show_error_at(entity.surface, entity.position, { "", entity.localised_name, " is not fully within the prefab's construction area" })
                 prefab.surface.create_entity { name = prefab.name, position = prefab.position, force = prefab.force }
@@ -212,6 +229,8 @@ function exports.on_player_mined_entity(e)
             end
         end
     end
+
+    sort_entities(prefabbed_entities)
 
     local blueprint_string = create_blueprint(e.buffer, prefab.surface, player.force, prefab_bounding_box)
 
@@ -224,7 +243,7 @@ function exports.on_player_mined_entity(e)
         prefab_stack.set_tag("blueprint", blueprint_string)
 
         local params = {}
-        for _, entity in ipairs(prefabbedEntities) do
+        for _, entity in ipairs(prefabbed_entities) do
             if entity.valid and entity.minable and not is_prefab(entity) then
                 local item_name = entity.name == "entity-ghost" and entity.ghost_name or entity.name
                 if player.mine_entity(entity) then
