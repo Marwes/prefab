@@ -10,7 +10,7 @@ local function is_prefab(entity)
 end
 
 local function starts_with(haystack, needle)
-    return string.sub(haystack, 1, string.len(needle)) == needle
+    return string.sub(haystack, string.len(needle)) == needle
 end
 local function is_build_prefab(entity)
     return starts_with(entity.name, "prefab-build")
@@ -195,7 +195,7 @@ local function create_blueprint(inventory, surface, force, size, prefab_bounding
     blueprint.set_blueprint_entities(blueprint_entities)
 
     -- TEST
-    if true then
+    if false then
         game.players[1].insert(blueprint)
     end
 

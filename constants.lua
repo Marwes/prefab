@@ -6,11 +6,13 @@ exports.prefab = {
         size = 7,
         name = "prefab",
         build_name = "prefab-build",
+        ingredients = {{"medium-electric-pole", 1}, {"steel-plate", 10}, {"concrete", 20}}
     },
     ["prefab-9x9"] = {
         size = 9,
         name = "prefab-9x9",
         build_name = "prefab-build-9x9",
+        ingredients = {{"medium-electric-pole", 1}, {"steel-plate", 10}, {"concrete", 40}, {"plastic-bar", 10}}
     }
 }
 
