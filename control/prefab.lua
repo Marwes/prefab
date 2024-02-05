@@ -12,13 +12,13 @@ end
 
 local function sort_entities(entities)
     table.sort(entities, function(l, r)
-        if l.position.x < r.position.x then
-            return true
-        elseif l.position.x > r.position.x then
-            return false
-        elseif l.position.y < r.position.y then
+        if l.position.y < r.position.y then
             return true
         elseif l.position.y > r.position.y then
+            return false
+        elseif l.position.x < r.position.x then
+            return true
+        elseif l.position.x > r.position.x then
             return false
         end
         return l.name < r.name
@@ -34,17 +34,6 @@ local function contains_bounding_box(parent, child)
         parent.left_top.y <= child.left_top.y and
         parent.right_bottom.x >= child.right_bottom.x and
         parent.right_bottom.y >= child.right_bottom.y
-end
-
-local function find_prefab_in_blueprint(blueprint)
-    local blueprint_entities = blueprint.get_blueprint_entities()
-
-    for _, e in ipairs(blueprint_entities) do
-        if is_prefab(e) then
-            return { x = e.position.x, y = e.position.y }
-        end
-    end
-    return nil
 end
 
 local function vecAdd(l, r)
@@ -117,9 +106,9 @@ function exports.on_built_entity(e)
             entity.destroy()
             return
         end
-        for _, e in ipairs(built_entities) do 
+        for _, e in ipairs(built_entities) do
             if player.can_place_entity{ name = e.ghost_name, position = e.position, direction = e.direction } then
-                local cant_remove_index = nil 
+                local cant_remove_index = nil
                 local items_to_place_this = e.ghost_prototype.items_to_place_this
                 local player_inventory = player.get_main_inventory()
                 for i, item in ipairs(items_to_place_this) do
@@ -236,22 +225,32 @@ function exports.on_player_mined_entity(e)
 
     remove_tiles_around(prefab.surface, prefab.position, size)
 
-    log(blueprint_string)
     if blueprint_string then
         local prefab_stack = e.buffer.find_item_stack(constants.prefab_build_name)
         assert(prefab_stack, "Missing prefab!")
         prefab_stack.set_tag("blueprint", blueprint_string)
 
         local params = {}
+        local previous_x = nil
         for _, entity in ipairs(prefabbed_entities) do
             if entity.valid and entity.minable and not is_prefab(entity) then
                 local item_name = entity.name == "entity-ghost" and entity.ghost_name or entity.name
+                local x = entity.position.x
                 if player.mine_entity(entity) then
+                    if previous_x ~= nil then
+                        if x > previous_x then
+                            table.insert(params, " ")
+                        else
+                            -- Start of a new line
+                            table.insert(params, "\n")
+                        end
+                    end
                     table.insert(params, '[item=' .. item_name .. ']')
+                    previous_x = x
                 end
             end
         end
-        prefab_stack.custom_description = table.concat(params, " ")
+        prefab_stack.custom_description = table.concat(params, "")
 
     end
 end
@@ -259,7 +258,7 @@ end
 function exports.on_player_mined_tile(e)
     local surface = game.surfaces[e.surface_index]
     local tiles = e.tiles
- 
+
     -- Disables mining of the prefab tiles, without making them not-minable (which would cause any natural tiles to be erased when the prefab is placed)
     local tiles_to_restore = {}
     for _, tile in pairs(tiles) do
@@ -267,7 +266,7 @@ function exports.on_player_mined_tile(e)
             table.insert(tiles_to_restore, { name = constants.prefab_tile_name, position = tile.position })
         end
     end
-    
+
     if #tiles_to_restore > 0 then
         surface.set_tiles(tiles_to_restore)
     end
@@ -282,13 +281,13 @@ function exports.on_player_built_tile(e)
 
     local tiles_to_restore = {}
     -- Disable building tiles on top of any prefab tiles
-    
+
     for _, tile in pairs(tiles) do
         if tile.old_tile.name == constants.prefab_tile_name then
             table.insert(tiles_to_restore, { name = constants.prefab_tile_name, position = tile.position })
         end
     end
-    
+
     if #tiles_to_restore > 0 then
         surface.set_tiles(tiles_to_restore)
         if e.stack then
