@@ -154,7 +154,7 @@ function exports.on_built_entity(e)
 end
 
 local function create_blueprint(inventory, surface, force, prefab_bounding_box)
-    log(serpent.block{"create_blueprint", prefab_bounding_box})
+    -- log(serpent.block{"create_blueprint", prefab_bounding_box})
     assert(inventory.insert{name = "blueprint", count = 1} == 1)
     local blueprint = inventory.find_item_stack("blueprint")
     blueprint.create_blueprint{ surface = surface, force = force, area = prefab_bounding_box }
@@ -170,7 +170,6 @@ local function create_blueprint(inventory, surface, force, prefab_bounding_box)
 
     local prefab_position
     for _, e in ipairs(blueprint_entities) do
-        log(serpent.block{e.name})
         if is_prefab(e) then
             prefab_position = { x = e.position.x - size / 2, y = e.position.y - size / 2 }
             break
@@ -208,7 +207,6 @@ function exports.on_player_mined_entity(e)
     local searched_entities = prefab.surface.find_entities_filtered{ area = prefab_bounding_box, force = player.force }
     local prefabbed_entities = {}
     for i, entity in ipairs(searched_entities) do
-        log(serpent.block{entity.name, entity.type, entity.minable})
         if not is_prefab(entity) and not (entity.type == "character") and not (entity.type == "car")and entity.minable then
             if contains_bounding_box(prefab_bounding_box, entity.bounding_box) then
                 table.insert(prefabbed_entities, entity)
@@ -274,7 +272,7 @@ function exports.on_player_mined_tile(e)
 end
 
 function exports.on_player_built_tile(e)
-    log(serpent.block{"on_player_mined_tile", e})
+    -- log(serpent.block{"on_player_mined_tile", e})
     if e.tile.name == constants.prefab_tile_name then return end
 
     local tiles = e.tiles

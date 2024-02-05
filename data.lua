@@ -2,9 +2,28 @@ local constants = require("constants")
 
 local base = "medium-electric-pole"
 
+local prefab_tint = { r = 0.5, g = 0.5, b = 0.6, a = 1 }
+
+local function tint_sprite(sprite, tint)
+    if sprite.filename then
+        sprite.tint = tint
+        sprite.apply_runtime_tint = true
+    end
+    if sprite.hr_version then
+        tint_sprite(sprite.hr_version, tint)
+    end
+    if sprite.layers then
+        for _, layer in ipairs(sprite.layers) do
+            tint_sprite(layer, tint)
+        end
+    end
+end
+
 local prefab_placed_entity = table.deepcopy(data.raw["electric-pole"][base])
 prefab_placed_entity.name = constants.prefab_name
 prefab_placed_entity.minable.result = constants.prefab_build_name
+tint_sprite(prefab_placed_entity.pictures, prefab_tint)
+log(serpent.block{prefab_placed_entity.pictures})
 -- prefab_placed_entity.collision_mask = { "item-layer", "object-layer", "water-tile" }
 
 local prefab_build_entity = table.deepcopy(prefab_placed_entity)
@@ -30,7 +49,6 @@ r.result = constants.prefab_build_name
 
 data:extend{prefab_placed_entity, prefab_build_entity, prefab_item, prefab_build_item}
 
-local prefab_tint = { r = 0.7, g = 0.7, b = 0.7, a = 1 }
 
 local prefab_tile_item = table.deepcopy(data.raw.item["refined-concrete"])
 
