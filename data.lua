@@ -36,14 +36,14 @@ local function create_prefab_data(spec)
     prefab_placed_entity.name = spec.name
     prefab_placed_entity.minable.result = spec.build_name
     prefab_placed_entity.supply_area_distance = spec.size / 2
+    prefab_placed_entity.flags = { "hidden" }
     tint_sprite(prefab_placed_entity.pictures, prefab_tint)
-    -- prefab_placed_entity.collision_mask = { "item-layer", "object-layer", "water-tile" }
 
     local prefab_build_entity = table.deepcopy(prefab_placed_entity)
     prefab_build_entity.name = spec.build_name
     local size = (spec.size - 0.01) / 2
     prefab_build_entity.collision_box = { { -size, -size }, { size, size } }
-    -- prefab_build_entity.selection_box = { { -sizeew, -size }, { size, size } }
+    prefab_placed_entity.flags = {}
 
     local prefab_item = table.deepcopy(data.raw["item"][base])
     prefab_item.name = spec.build_name
